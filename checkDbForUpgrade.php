@@ -59,8 +59,10 @@ class checkDbForUpgrade extends PluginBase
             if(Yii::app()->db->schema->getTable('{{answers_old}}')){
                 $oDB->createCommand()->dropTable('{{answers_old}}');
             }
-
-            /* The test question (to don't update real table) : samle than 3.0 installer */
+            /**
+             * The test table (to don't update real table) : same than 3.0 installer
+             **/
+            /* question */
             $oDB->createCommand()->createTable('{{questions_test}}', array(
                 'qid' =>  "autoincrement",
                 'parent_qid' =>  "integer NOT NULL default '0'",
@@ -81,13 +83,13 @@ class checkDbForUpgrade extends PluginBase
                 'modulename' =>  "string(255) NULL",
                 'composite_pk' => array('qid', 'language')
             ));
-            $oDB->createCommand()->createIndex('{{idx1_questions}}', '{{questions_test}}', 'sid', false);
-            $oDB->createCommand()->createIndex('{{idx2_questions}}', '{{questions_test}}', 'gid', false);
-            $oDB->createCommand()->createIndex('{{idx3_questions}}', '{{questions_test}}', 'type', false);
-            $oDB->createCommand()->createIndex('{{idx4_questions}}', '{{questions_test}}', 'title', false);
-            $oDB->createCommand()->createIndex('{{idx5_questions}}', '{{questions_test}}', 'parent_qid', false);
+            $oDB->createCommand()->createIndex('{{idx1_questions_test}}', '{{questions_test}}', 'sid', false);
+            $oDB->createCommand()->createIndex('{{idx2_questions_test}}', '{{questions_test}}', 'gid', false);
+            $oDB->createCommand()->createIndex('{{idx3_questions_test}}', '{{questions_test}}', 'type', false);
+            $oDB->createCommand()->createIndex('{{idx4_questions_test}}', '{{questions_test}}', 'title', false);
+            $oDB->createCommand()->createIndex('{{idx5_questions_test}}', '{{questions_test}}', 'parent_qid', false);
             $oDB->createCommand("INSERT INTO {{questions_test}} select * FROM {{questions}}")->execute();
-
+            /* answers */
             $oDB->createCommand()->createTable('{{answers_test}}', array(
                 'qid' => 'integer NOT NULL',
                 'code' => 'string(5) NOT NULL',
@@ -98,9 +100,9 @@ class checkDbForUpgrade extends PluginBase
                 'scale_id' => 'integer NOT NULL DEFAULT 0',
             ));
 
-            $oDB->createCommand()->addPrimaryKey('{{answers_pk}}', '{{answers_test}}', ['qid', 'code', 'language', 'scale_id'], false);
-            $oDB->createCommand()->createIndex('{{answers_idx2}}', '{{answers_test}}', 'sortorder', false);
-            $oDB->createCommand("INSERT INTO {{answers_test}} select * FROM {{answers}}")->execute();
+            $oDB->createCommand()->addPrimaryKey('{{answers_pk_test}}', '{{answers_test}}', ['qid', 'code', 'language', 'scale_id'], false);
+            $oDB->createCommand()->createIndex('{{answers_idx2_test}}', '{{answers_test}}', 'sortorder', false);
+            $oDB->createCommand("INSERT INTO {{answers_test}} select qid,code,answer,sortorder,assessment_value,language,scale_id FROM {{answers}}")->execute();
 
             /**
              * ## Do the action on questions_test ##
@@ -140,12 +142,13 @@ class checkDbForUpgrade extends PluginBase
                 FROM {{questions_old}}
                     INNER JOIN {{surveys}} ON {{questions_old}}.sid = {{surveys}}.sid AND {{questions_old}}.language = {{surveys}}.language
                 ")->execute();
-            $oDB->createCommand()->createIndex('{{idx1_questions}}', '{{questions_test}}', 'sid', false);
-            $oDB->createCommand()->createIndex('{{idx2_questions}}', '{{questions_test}}', 'gid', false);
-            $oDB->createCommand()->createIndex('{{idx3_questions}}', '{{questions_test}}', 'type', false);
-            $oDB->createCommand()->createIndex('{{idx4_questions}}', '{{questions_test}}', 'title', false);
-            $oDB->createCommand()->createIndex('{{idx5_questions}}', '{{questions_test}}', 'parent_qid', false);
-            $oDB->createCommand()->dropTable('{{questions_old}}');
+            $oDB->createCommand()->dropTable('{{questions_old}}'); // Drop the table before create index for pgsql
+            $oDB->createCommand()->createIndex('{{idx1_questions_test}}', '{{questions_test}}', 'sid', false);
+            $oDB->createCommand()->createIndex('{{idx2_questions_test}}', '{{questions_test}}', 'gid', false);
+            $oDB->createCommand()->createIndex('{{idx3_questions_test}}', '{{questions_test}}', 'type', false);
+            $oDB->createCommand()->createIndex('{{idx4_questions_test}}', '{{questions_test}}', 'title', false);
+            $oDB->createCommand()->createIndex('{{idx5_questions_test}}', '{{questions_test}}', 'parent_qid', false);
+            
 
             /* Groups , can use same system (i think) */
 
