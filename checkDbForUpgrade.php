@@ -46,7 +46,16 @@ class checkDbForUpgrade extends PluginBase
             if(Yii::app()->db->schema->getTable('{{answer_l10ns}}')){
                 $oDB->createCommand()->dropTable('{{answer_l10ns}}');
             }
-            /* Must not happen if don't broke, but can broke … */
+            if(Yii::app()->db->schema->getTable('{{label_test}}')){
+                $oDB->createCommand()->dropTable('{{answers_test}}');
+            }
+            if(Yii::app()->db->schema->getTable('{{label_l10ns}}')){
+                $oDB->createCommand()->dropTable('{{answer_l10ns}}');
+            }
+            /* Must not happen if don't broke, but can broke when testing code */
+            if(Yii::app()->db->schema->getTable('{{questions_old}}')){
+                $oDB->createCommand()->dropTable('{{questions_old}}');
+            }
             if(Yii::app()->db->schema->getTable('{{answers_old}}')){
                 $oDB->createCommand()->dropTable('{{answers_old}}');
             }
@@ -125,7 +134,12 @@ class checkDbForUpgrade extends PluginBase
                 'modulename' =>  "string(255) NULL"
             ));
             /* Since qid is unique : can be used, but mysql < 5.7.5 throw error , fix NULL to emty string when needed */
-            $oDB->createCommand("INSERT INTO {{questions_test}} (qid, parent_qid, sid, gid, type, title, preg, other, mandatory, question_order, scale_id, same_default, relevance, modulename) SELECT qid, parent_qid, sid, gid, type, title, COALESCE(preg,''), other, COALESCE(mandatory,''), question_order, scale_id, same_default, COALESCE(relevance,''), COALESCE(modulename,'') from {{questions_old}} GROUP BY qid")->execute();
+            $oDB->createCommand("INSERT INTO {{questions_test}}
+                (qid, parent_qid, sid, gid, type, title, preg, other, mandatory, question_order, scale_id, same_default, relevance, modulename)
+                SELECT qid, parent_qid, {{questions_old}}.sid, gid, type, title, COALESCE(preg,''), other, COALESCE(mandatory,''), question_order, scale_id, same_default, COALESCE(relevance,''), COALESCE(modulename,'')
+                FROM {{questions_old}}
+                    INNER JOIN {{surveys}} ON {{questions_old}}.sid = {{surveys}}.sid AND {{questions_old}}.language = {{surveys}}.language
+                ")->execute();
             $oDB->createCommand()->createIndex('{{idx1_questions}}', '{{questions_test}}', 'sid', false);
             $oDB->createCommand()->createIndex('{{idx2_questions}}', '{{questions_test}}', 'gid', false);
             $oDB->createCommand()->createIndex('{{idx3_questions}}', '{{questions_test}}', 'type', false);
@@ -133,11 +147,12 @@ class checkDbForUpgrade extends PluginBase
             $oDB->createCommand()->createIndex('{{idx5_questions}}', '{{questions_test}}', 'parent_qid', false);
             $oDB->createCommand()->dropTable('{{questions_old}}');
 
-            /* Groups , labels can use same system (i think) */
+            /* Groups , can use same system (i think) */
 
             /**
              * ## Do the action on answers_test ##
              **/
+
             $oDB->createCommand()->createTable('{{answer_l10ns}}', array(
                 'id' =>  "pk",
                 'aid' =>  "integer NOT NULL",
@@ -145,9 +160,9 @@ class checkDbForUpgrade extends PluginBase
                 'language' =>  "string(20) NOT NULL"
             ));
             $oDB->createCommand()->createIndex('{{idx1_answer_l10ns}}', '{{answer_l10ns}}', ['aid', 'language'], true);
-            
+            /* Renaming old without pk answers */
             $oDB->createCommand()->renameTable('{{answers_test}}', '{{answers_old}}');
-            $oDB->createCommand()->createIndex('answer_idx_10', '{{answers_old}}', ['qid', 'code', 'scale_id']);
+            /* Create new answers with pk and copy answers_old Grouping by unique part */
             $oDB->createCommand()->createTable('{{answers_test}}',[
                 'aid' =>  "pk",
                 'qid' => 'integer NOT NULL',
@@ -156,8 +171,15 @@ class checkDbForUpgrade extends PluginBase
                 'assessment_value' => 'integer NOT NULL DEFAULT 0',
                 'scale_id' => 'integer NOT NULL DEFAULT 0'
             ]);
+            $oDB->createCommand()->createIndex('answer_idx_10', '{{answers_old}}', ['qid', 'code', 'scale_id']);
             /* No pk in insert (not checked in mssql and pgsql … ) according to https://www.w3schools.com/SQl/sql_autoincrement.asp : IDENTITY must do the trick */
-            $oDB->createCommand("INSERT INTO {{answers_test}} (qid, code, sortorder, assessment_value, scale_id) SELECT qid, code, sortorder, assessment_value, scale_id FROM {{answers_old}} GROUP BY qid, code, scale_id")->execute();
+            $oDB->createCommand("INSERT INTO {{answers_test}}
+                (qid, code, sortorder, assessment_value, scale_id)
+                SELECT {{answers_old}}.qid, {{answers_old}}.code, {{answers_old}}.sortorder, {{answers_old}}.assessment_value, {{answers_old}}.scale_id
+                FROM {{answers_old}}
+                    INNER JOIN {{questions_test}} ON {{answers_old}}.qid = {{questions_test}}.qid
+                    INNER JOIN {{surveys}} ON {{questions_test}}.sid = {{surveys}}.sid AND {{surveys}}.language = {{answers_old}}.language
+                ")->execute();
             /* no pk in insert, get aid by INNER join */
             $oDB->createCommand("INSERT INTO {{answer_l10ns}} (aid, answer, language) SELECT {{answers_test}}.aid, {{answers_old}}.answer, {{answers_old}}.language
                     FROM {{answers_old}}
@@ -166,6 +188,7 @@ class checkDbForUpgrade extends PluginBase
             $oDB->createCommand()->dropTable('{{answers_old}}');
             $oDB->createCommand()->createIndex('{{answers_idx}}', '{{answers_test}}', ['qid', 'code', 'scale_id'], true);
             $oDB->createCommand()->createIndex('{{answers_idx2}}', '{{answers_test}}', 'sortorder', false);
+            
         }
     }
 
