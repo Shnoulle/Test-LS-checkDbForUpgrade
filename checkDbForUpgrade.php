@@ -184,7 +184,7 @@ class checkDbForUpgrade extends PluginBase
             $oDB->createCommand("INSERT INTO {{labels_test}}
                 (id, lid, code, sortorder, assessment_value)
                 SELECT id, lid, code, sortorder, assessment_value
-                FROM {{labels_test}} GROUP BY id
+                FROM {{labels_old}} GROUP BY id
                 ")->execute();
             switchMSSQLIdentityInsert('labels_test', false); // Untested
         }
@@ -269,11 +269,11 @@ class checkDbForUpgrade extends PluginBase
         if(Yii::app()->db->schema->getTable('{{answer_l10ns}}')){
             $oDB->createCommand()->dropTable('{{answer_l10ns}}');
         }
-        if(Yii::app()->db->schema->getTable('{{label_test}}')){
-            $oDB->createCommand()->dropTable('{{answers_test}}');
+        if(Yii::app()->db->schema->getTable('{{labels_test}}')){
+            $oDB->createCommand()->dropTable('{{labels_test}}');
         }
         if(Yii::app()->db->schema->getTable('{{label_l10ns}}')){
-            $oDB->createCommand()->dropTable('{{answer_l10ns}}');
+            $oDB->createCommand()->dropTable('{{label_l10ns}}');
         }
 
         /* Must not happen if don't broke, but can broke when testing code */
@@ -285,6 +285,9 @@ class checkDbForUpgrade extends PluginBase
         }
         if(Yii::app()->db->schema->getTable('{{groups_old}}')){
             $oDB->createCommand()->dropTable('{{groups_old}}');
+        }
+        if(Yii::app()->db->schema->getTable('{{labels_old}}')){
+            $oDB->createCommand()->dropTable('{{labels_old}}');
         }
     }
 
