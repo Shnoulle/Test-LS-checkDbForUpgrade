@@ -187,7 +187,8 @@ class checkDbForUpgrade extends PluginBase
                 FROM {{labels_old}} GROUP BY id
                 ")->execute();
             switchMSSQLIdentityInsert('labels_test', false); // Untested
-
+            $oDB->createCommand()->dropTable('{{labels_old}}');
+            
             /**
              * Default values
              **/
@@ -215,6 +216,7 @@ class checkDbForUpgrade extends PluginBase
                     INNER JOIN {{surveys}} ON {{questions_test}}.sid = {{surveys}}.sid AND {{surveys}}.language = {{defaultvalues_old}}.language
                 ")->execute();
             $oDB->createCommand()->createIndex('{{idx1_defaultvalue_test}}', '{{defaultvalues_test}}', ['qid', 'scale_id', 'sqid', 'specialtype'], false);
+            $oDB->createCommand()->dropTable('{{defaultvalues_old}}');
 
         }
     }
