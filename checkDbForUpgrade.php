@@ -73,12 +73,14 @@ class checkDbForUpgrade extends PluginBase
                 'modulename' =>  "string(255) NULL"
             ), $options);
             /* Be sure to have empty string (because set when create question) */
+            switchMSSQLIdentityInsert('questions_test', true); // Untested
             $oDB->createCommand("INSERT INTO {{questions_test}}
                 (qid, parent_qid, sid, gid, type, title, preg, other, mandatory, question_order, scale_id, same_default, relevance, modulename)
                 SELECT qid, parent_qid, {{questions_old}}.sid, gid, type, title, COALESCE(preg,''), other, COALESCE(mandatory,''), question_order, scale_id, same_default, COALESCE(relevance,''), COALESCE(modulename,'')
                 FROM {{questions_old}}
                     INNER JOIN {{surveys}} ON {{questions_old}}.sid = {{surveys}}.sid AND {{questions_old}}.language = {{surveys}}.language
                 ")->execute();
+            switchMSSQLIdentityInsert('questions_test', false); // Untested
             $oDB->createCommand()->dropTable('{{questions_old}}'); // Drop the table before create index for pgsql
             $oDB->createCommand()->createIndex('{{idx1_questions_test}}', '{{questions_test}}', 'sid', false);
             $oDB->createCommand()->createIndex('{{idx2_questions_test}}', '{{questions_test}}', 'gid', false);
@@ -105,12 +107,14 @@ class checkDbForUpgrade extends PluginBase
                 'randomization_group' =>  "string(20) NOT NULL default ''",
                 'grelevance' =>  "text NULL"
             ), $options);
+            switchMSSQLIdentityInsert('groups_test', true); // Untested
             $oDB->createCommand("INSERT INTO {{groups_test}}
                 (gid, sid, group_order, randomization_group, grelevance)
                 SELECT gid, {{groups_old}}.sid, group_order, randomization_group, COALESCE(grelevance,'')
                 FROM {{groups_old}}
                     INNER JOIN {{surveys}} ON {{groups_old}}.sid = {{surveys}}.sid AND {{groups_old}}.language = {{surveys}}.language
                 ")->execute();
+            switchMSSQLIdentityInsert('groups_test', false); // Untested
             $oDB->createCommand()->dropTable('{{groups_old}}'); // Drop the table before create index for pgsql
             $oDB->createCommand()->createIndex('{{idx1_groups_test}}', '{{groups_test}}', 'sid', false);
             /**
@@ -122,7 +126,7 @@ class checkDbForUpgrade extends PluginBase
                 'aid' =>  "integer NOT NULL",
                 'answer' =>  "text NOT NULL",
                 'language' =>  "string(20) NOT NULL"
-            ));
+            ), $options);
             $oDB->createCommand()->createIndex('{{idx1_answer_l10ns}}', '{{answer_l10ns}}', ['aid', 'language'], true);
             /* Renaming old without pk answers */
             $oDB->createCommand()->renameTable('{{answers_test}}', '{{answers_old}}');
@@ -134,7 +138,7 @@ class checkDbForUpgrade extends PluginBase
                 'sortorder' => 'integer NOT NULL',
                 'assessment_value' => 'integer NOT NULL DEFAULT 0',
                 'scale_id' => 'integer NOT NULL DEFAULT 0'
-            ]);
+            ], $options);
             $oDB->createCommand()->createIndex('answer_idx_10', '{{answers_old}}', ['qid', 'code', 'scale_id']);
             /* No pk in insert (not checked in mssql and pgsql … ) according to https://www.w3schools.com/SQl/sql_autoincrement.asp : IDENTITY must do the trick */
             $oDB->createCommand("INSERT INTO {{answers_test}}
@@ -152,7 +156,37 @@ class checkDbForUpgrade extends PluginBase
             $oDB->createCommand()->dropTable('{{answers_old}}');
             $oDB->createCommand()->createIndex('{{answers_idx}}', '{{answers_test}}', ['qid', 'code', 'scale_id'], true);
             $oDB->createCommand()->createIndex('{{answers_idx2}}', '{{answers_test}}', 'sortorder', false);
-            
+
+            /**
+             * Labels
+             **/
+            $oDB->createCommand()->createTable('{{label_l10ns}}', array(
+                'id' =>  "pk",
+                'label_id' =>  "integer NOT NULL",
+                'title' =>  "text",
+                'language' =>  "string(20) NOT NULL DEFAULT 'en'"
+            ), $options);
+            $oDB->createCommand()->createIndex('{{idx1_label_l10ns}}', '{{label_l10ns}}', ['label_id', 'language'], true);
+            $oDB->createCommand("INSERT INTO {{label_l10ns}}
+                (label_id, title, language)
+                SELECT {{labels_test}}.id, title, language
+                FROM {{labels_test}}
+                ")->execute();
+            $oDB->createCommand()->renameTable('{{labels_test}}', '{{labels_old}}');
+            $oDB->createCommand()->createTable('{{labels_test}}',[
+                'id' =>  "pk",
+                'lid' => 'integer NOT NULL',
+                'code' => 'string(5) NOT NULL',
+                'sortorder' => 'integer NOT NULL',
+                'assessment_value' => 'integer NOT NULL DEFAULT 0'
+            ], $options);
+            switchMSSQLIdentityInsert('labels_test', true); // Untested
+            $oDB->createCommand("INSERT INTO {{labels_test}}
+                (id, lid, code, sortorder, assessment_value)
+                SELECT id, lid, code, sortorder, assessment_value
+                FROM {{labels_test}} GROUP BY id
+                ")->execute();
+            switchMSSQLIdentityInsert('labels_test', false); // Untested
         }
     }
 
@@ -321,6 +355,24 @@ class checkDbForUpgrade extends PluginBase
         $oDB->createCommand()->addPrimaryKey('{{answers_pk_test}}', '{{answers_test}}', ['qid', 'code', 'language', 'scale_id'], false);
         $oDB->createCommand()->createIndex('{{answers_idx2_test}}', '{{answers_test}}', 'sortorder', false);
         $oDB->createCommand("INSERT INTO {{answers_test}} select qid,code,answer,sortorder,assessment_value,language,scale_id FROM {{answers}}")->execute();
+
+        /* labels */
+        $oDB->createCommand()->createTable('{{labels_test}}', array(
+            'id' =>  "pk",
+            'lid' =>  "integer NOT NULL DEFAULT 0",
+            'code' =>  "string(5) NOT NULL default ''",
+            'title' =>  "text",
+            'sortorder' =>  "integer NOT NULL",
+            'language' =>  "string(20) NOT NULL DEFAULT 'en'",
+            'assessment_value' =>  "integer NOT NULL default '0'",
+        ));
+
+        $oDB->createCommand()->createIndex('{{idx1_labels_test}}', '{{labels_test}}', 'code', false);
+        $oDB->createCommand()->createIndex('{{idx2_labels_test}}', '{{labels_test}}', 'sortorder', false);
+        $oDB->createCommand()->createIndex('{{idx3_labels_test}}', '{{labels_test}}', 'language', false);
+        $oDB->createCommand()->createIndex('{{idx4_labels_test}}', '{{labels_test}}', ['lid','sortorder','language'], false);
+        $oDB->createCommand("INSERT INTO {{labels_test}} select id, lid, code, title, sortorder, language, assessment_value FROM {{labels}}")->execute();
+
     }
 }
 
