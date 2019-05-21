@@ -40,6 +40,12 @@ class checkDbForUpgrade extends PluginBase
             if(Yii::app()->db->schema->getTable('{{question_l10ns}}')){
                 $oDB->createCommand()->dropTable('{{question_l10ns}}');
             }
+            if(Yii::app()->db->schema->getTable('{{groups_test}}')){
+                $oDB->createCommand()->dropTable('{{groups_test}}');
+            }
+            if(Yii::app()->db->schema->getTable('{{group_l10ns}}')){
+                $oDB->createCommand()->dropTable('{{group_l10ns}}');
+            }
             if(Yii::app()->db->schema->getTable('{{answers_test}}')){
                 $oDB->createCommand()->dropTable('{{answers_test}}');
             }
@@ -58,6 +64,9 @@ class checkDbForUpgrade extends PluginBase
             }
             if(Yii::app()->db->schema->getTable('{{answers_old}}')){
                 $oDB->createCommand()->dropTable('{{answers_old}}');
+            }
+            if(Yii::app()->db->schema->getTable('{{groups_old}}')){
+                $oDB->createCommand()->dropTable('{{groups_old}}');
             }
             /**
              * The test table (to don't update real table) : same than 3.0 installer
@@ -88,7 +97,27 @@ class checkDbForUpgrade extends PluginBase
             $oDB->createCommand()->createIndex('{{idx3_questions_test}}', '{{questions_test}}', 'type', false);
             $oDB->createCommand()->createIndex('{{idx4_questions_test}}', '{{questions_test}}', 'title', false);
             $oDB->createCommand()->createIndex('{{idx5_questions_test}}', '{{questions_test}}', 'parent_qid', false);
-            $oDB->createCommand("INSERT INTO {{questions_test}} select * FROM {{questions}}")->execute();
+            $oDB->createCommand("INSERT INTO {{questions_test}} select
+                qid, parent_qid, sid, gid, type, title, question, preg, help, other, mandatory, question_order, language, scale_id, same_default, relevance, modulename
+                FROM {{questions}}")->execute();
+            /* groups */
+            $oDB->createCommand()->createTable('{{groups_test}}', array(
+                'gid' =>  "autoincrement",
+                'sid' =>  "integer NOT NULL default '0'",
+                'group_name' =>  "string(100) NOT NULL default ''",
+                'group_order' =>  "integer NOT NULL default '0'",
+                'description' =>  "text",
+                'language' =>  "string(20) default 'en' NOT NULL",
+                'randomization_group' =>  "string(20) NOT NULL default ''",
+                'grelevance' =>  "text NULL",
+                'composite_pk' => array('gid', 'language')
+            ));
+            $oDB->createCommand()->createIndex('{{idx1_groups_test}}', '{{groups_test}}', 'sid', false);
+            $oDB->createCommand()->createIndex('{{idx2_groups_test}}', '{{groups_test}}', 'group_name', false);
+            $oDB->createCommand()->createIndex('{{idx3_groups_test}}', '{{groups_test}}', 'language', false);
+            $oDB->createCommand("INSERT INTO {{groups_test}} select
+                gid, sid, group_name,group_order, description, language, randomization_group, grelevance
+                FROM {{groups}}")->execute();
             /* answers */
             $oDB->createCommand()->createTable('{{answers_test}}', array(
                 'qid' => 'integer NOT NULL',
@@ -105,7 +134,14 @@ class checkDbForUpgrade extends PluginBase
             $oDB->createCommand("INSERT INTO {{answers_test}} select qid,code,answer,sortorder,assessment_value,language,scale_id FROM {{answers}}")->execute();
 
             /**
-             * ## Do the action on questions_test ##
+             * The real test start
+             */
+            $options = "";
+            if(in_array(Yii::app()->db->driverName,['mysql','mysqli'])) {
+                $options = 'ROW_FORMAT=DYNAMIC'; // Same than create-database
+            }
+            /**
+             * Do the action on questions_test
              **/
             /* l10ns question table : same than current */
             $oDB->createCommand()->createTable('{{question_l10ns}}', array(
@@ -114,7 +150,7 @@ class checkDbForUpgrade extends PluginBase
                 'question' =>  "text NOT NULL",
                 'help' =>  "text",
                 'language' =>  "string(20) NOT NULL"
-            ));
+            ), $options);
             $oDB->createCommand()->createIndex('{{idx1_question_l10ns}}', '{{question_l10ns}}', ['qid', 'language'], true);
             $oDB->createCommand("INSERT INTO {{question_l10ns}} (qid, question, help, language) select qid, question, help, language from {{questions}}")->execute();
             $oDB->createCommand()->renameTable('{{questions_test}}', '{{questions_old}}');
@@ -134,8 +170,8 @@ class checkDbForUpgrade extends PluginBase
                 'same_default' =>  "integer NOT NULL default '0'",
                 'relevance' =>  "text",
                 'modulename' =>  "string(255) NULL"
-            ));
-            /* Since qid is unique : can be used, but mysql < 5.7.5 throw error , fix NULL to emty string when needed */
+            ), $options);
+            /* Be sure to have empty string (because set when create question) */
             $oDB->createCommand("INSERT INTO {{questions_test}}
                 (qid, parent_qid, sid, gid, type, title, preg, other, mandatory, question_order, scale_id, same_default, relevance, modulename)
                 SELECT qid, parent_qid, {{questions_old}}.sid, gid, type, title, COALESCE(preg,''), other, COALESCE(mandatory,''), question_order, scale_id, same_default, COALESCE(relevance,''), COALESCE(modulename,'')
@@ -148,10 +184,34 @@ class checkDbForUpgrade extends PluginBase
             $oDB->createCommand()->createIndex('{{idx3_questions_test}}', '{{questions_test}}', 'type', false);
             $oDB->createCommand()->createIndex('{{idx4_questions_test}}', '{{questions_test}}', 'title', false);
             $oDB->createCommand()->createIndex('{{idx5_questions_test}}', '{{questions_test}}', 'parent_qid', false);
-            
-
-            /* Groups , can use same system (i think) */
-
+            /**
+             * Do the action on groups_test
+             **/
+            $oDB->createCommand()->createTable('{{group_l10ns}}', array(
+                'id' =>  "pk",
+                'gid' =>  "integer NOT NULL",
+                'group_name' =>  "text NOT NULL",
+                'description' =>  "text",
+                'language' =>  "string(20) NOT NULL"
+            ), $options);
+            $oDB->createCommand()->createIndex('{{idx1_group_l10ns}}', '{{group_l10ns}}', ['gid', 'language'], true);
+            $oDB->createCommand("INSERT INTO {{group_l10ns}} (gid, group_name, description, language) select gid, group_name, description, language from {{groups}}")->execute();
+            $oDB->createCommand()->renameTable('{{groups_test}}', '{{groups_old}}');
+            $oDB->createCommand()->createTable('{{groups_test}}', array(
+                'gid' =>  "pk",
+                'sid' =>  "integer NOT NULL default '0'",
+                'group_order' =>  "integer NOT NULL default '0'",
+                'randomization_group' =>  "string(20) NOT NULL default ''",
+                'grelevance' =>  "text NULL"
+            ), $options);
+            $oDB->createCommand("INSERT INTO {{groups_test}}
+                (gid, sid, group_order, randomization_group, grelevance)
+                SELECT gid, {{groups_old}}.sid, group_order, randomization_group, COALESCE(grelevance,'')
+                FROM {{groups_old}}
+                    INNER JOIN {{surveys}} ON {{groups_old}}.sid = {{surveys}}.sid AND {{groups_old}}.language = {{surveys}}.language
+                ")->execute();
+            $oDB->createCommand()->dropTable('{{groups_old}}'); // Drop the table before create index for pgsql
+            $oDB->createCommand()->createIndex('{{idx1_groups_test}}', '{{groups_test}}', 'sid', false);
             /**
              * ## Do the action on answers_test ##
              **/
