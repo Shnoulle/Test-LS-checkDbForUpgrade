@@ -187,10 +187,41 @@ class checkDbForUpgrade extends PluginBase
                 FROM {{labels_old}} GROUP BY id
                 ")->execute();
             switchMSSQLIdentityInsert('labels_test', false); // Untested
+
+            /**
+             * Default values
+             **/
+            $oDB->createCommand()->createTable('{{defaultvalue_l10ns}}', array(
+                'id' =>  "pk",
+                'dvid' =>  "integer NOT NULL default '0'",
+                'language' =>  "string(20) NOT NULL",
+                'defaultvalue' =>  "text",
+            ), $options);
+            $oDB->createCommand()->createIndex('{{idx1_defaultvalue_l10ns}}', '{{defaultvalue_l10ns}}', ['dvid', 'language'], true);
+            $oDB->createCommand()->renameTable('{{defaultvalues_test}}', '{{defaultvalues_old}}');
+            $oDB->createCommand()->createIndex('defaultvalues_old_idx_10', '{{defaultvalues_old}}', ['qid', 'scale_id', 'sqid', 'specialtype', 'language']);
+            $oDB->createCommand()->createTable('{{defaultvalues_test}}',[
+                'dvid' =>  "pk",
+                'qid' =>  "integer NOT NULL default '0'",
+                'scale_id' =>  "integer NOT NULL default '0'",
+                'sqid' =>  "integer NOT NULL default '0'",
+                'specialtype' =>  "string(20) NOT NULL default ''",
+            ], $options);
+            $oDB->createCommand("INSERT INTO {{defaultvalues_test}}
+                (qid, scale_id, sqid, specialtype)
+                SELECT {{defaultvalues_old}}.qid, {{defaultvalues_old}}.scale_id, {{defaultvalues_old}}.sqid, {{defaultvalues_old}}.specialtype
+                FROM {{defaultvalues_old}}
+                    INNER JOIN {{questions_test}} ON {{defaultvalues_old}}.qid = {{questions_test}}.qid
+                    INNER JOIN {{surveys}} ON {{questions_test}}.sid = {{surveys}}.sid AND {{surveys}}.language = {{defaultvalues_old}}.language
+                ")->execute();
+            $oDB->createCommand()->createIndex('{{idx1_defaultvalue_test}}', '{{defaultvalues_test}}', ['qid', 'scale_id', 'sqid', 'specialtype'], false);
+
         }
     }
 
-    /* Copy paste of updatedb_helper function */
+    /* Copy paste of updatedb_helper function
+     * Unused
+     **/
     private static  function modifyPrimaryKey($sTablename, $aColumns)
     {
         switch (Yii::app()->db->driverName) {
@@ -215,7 +246,9 @@ class checkDbForUpgrade extends PluginBase
         }
     }
 
-    /* Copy paste of updatedb_helper function */
+    /* Copy paste of updatedb_helper function
+     * Unused
+     **/
     private static  function dropColumn($sTableName, $sColumnName)
     {
         if (Yii::app()->db->getDriverName()=='mssql' || Yii::app()->db->getDriverName()=='sqlsrv' || Yii::app()->db->getDriverName()=='dblib')
@@ -229,6 +262,9 @@ class checkDbForUpgrade extends PluginBase
         };
     }
 
+    /* Copy paste of updatedb_helper function
+     * Unused
+     **/
     private static function dropDefaultValueMSSQL($fieldname, $tablename)
     {
         // find out the name of the default constraint
@@ -275,6 +311,12 @@ class checkDbForUpgrade extends PluginBase
         if(Yii::app()->db->schema->getTable('{{label_l10ns}}')){
             $oDB->createCommand()->dropTable('{{label_l10ns}}');
         }
+        if(Yii::app()->db->schema->getTable('{{defaultvalues_test}}')){
+            $oDB->createCommand()->dropTable('{{defaultvalues_test}}');
+        }
+        if(Yii::app()->db->schema->getTable('{{defaultvalue_l10ns}}')){
+            $oDB->createCommand()->dropTable('{{defaultvalue_l10ns}}');
+        }
 
         /* Must not happen if don't broke, but can broke when testing code */
         if(Yii::app()->db->schema->getTable('{{questions_old}}')){
@@ -288,6 +330,9 @@ class checkDbForUpgrade extends PluginBase
         }
         if(Yii::app()->db->schema->getTable('{{labels_old}}')){
             $oDB->createCommand()->dropTable('{{labels_old}}');
+        }
+        if(Yii::app()->db->schema->getTable('{{defaultvalues_old}}')){
+            $oDB->createCommand()->dropTable('{{defaultvalues_old}}');
         }
     }
 
@@ -375,6 +420,19 @@ class checkDbForUpgrade extends PluginBase
         $oDB->createCommand()->createIndex('{{idx3_labels_test}}', '{{labels_test}}', 'language', false);
         $oDB->createCommand()->createIndex('{{idx4_labels_test}}', '{{labels_test}}', ['lid','sortorder','language'], false);
         $oDB->createCommand("INSERT INTO {{labels_test}} select id, lid, code, title, sortorder, language, assessment_value FROM {{labels}}")->execute();
+
+        /* defaultvalues */
+        $oDB->createCommand()->createTable('{{defaultvalues_test}}', array(
+            'qid' =>  "integer NOT NULL default '0'",
+            'scale_id' =>  "integer NOT NULL default '0'",
+            'sqid' =>  "integer NOT NULL default '0'",
+            'language' =>  "string(20) NOT NULL",
+            'specialtype' =>  "string(20) NOT NULL default ''",
+            'defaultvalue' =>  "text",
+        ));
+        $oDB->createCommand()->addPrimaryKey('{{defaultvalues_test_pk}}', '{{defaultvalues_test}}', ['qid', 'specialtype', 'language', 'scale_id', 'sqid'], false);
+        $oDB->createCommand("INSERT INTO {{defaultvalues_test}} select qid, scale_id, sqid, language, specialtype, defaultvalue FROM {{defaultvalues}}")->execute();
+
 
     }
 }
