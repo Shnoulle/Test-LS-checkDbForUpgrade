@@ -33,109 +33,10 @@ class checkDbForUpgrade extends PluginBase
     public function saveSettings($settings)
     {
         if(!empty($settings['duUpdate'])) {
+            self::_deletePreviousTable();
+            self::_createTestTable();
+
             $oDB = Yii::app()->getDb();
-            if(Yii::app()->db->schema->getTable('{{questions_test}}')){
-                $oDB->createCommand()->dropTable('{{questions_test}}');
-            }
-            if(Yii::app()->db->schema->getTable('{{question_l10ns}}')){
-                $oDB->createCommand()->dropTable('{{question_l10ns}}');
-            }
-            if(Yii::app()->db->schema->getTable('{{groups_test}}')){
-                $oDB->createCommand()->dropTable('{{groups_test}}');
-            }
-            if(Yii::app()->db->schema->getTable('{{group_l10ns}}')){
-                $oDB->createCommand()->dropTable('{{group_l10ns}}');
-            }
-            if(Yii::app()->db->schema->getTable('{{answers_test}}')){
-                $oDB->createCommand()->dropTable('{{answers_test}}');
-            }
-            if(Yii::app()->db->schema->getTable('{{answer_l10ns}}')){
-                $oDB->createCommand()->dropTable('{{answer_l10ns}}');
-            }
-            if(Yii::app()->db->schema->getTable('{{label_test}}')){
-                $oDB->createCommand()->dropTable('{{answers_test}}');
-            }
-            if(Yii::app()->db->schema->getTable('{{label_l10ns}}')){
-                $oDB->createCommand()->dropTable('{{answer_l10ns}}');
-            }
-            /* Must not happen if don't broke, but can broke when testing code */
-            if(Yii::app()->db->schema->getTable('{{questions_old}}')){
-                $oDB->createCommand()->dropTable('{{questions_old}}');
-            }
-            if(Yii::app()->db->schema->getTable('{{answers_old}}')){
-                $oDB->createCommand()->dropTable('{{answers_old}}');
-            }
-            if(Yii::app()->db->schema->getTable('{{groups_old}}')){
-                $oDB->createCommand()->dropTable('{{groups_old}}');
-            }
-            /**
-             * The test table (to don't update real table) : same than 3.0 installer
-             **/
-            /* question */
-            $oDB->createCommand()->createTable('{{questions_test}}', array(
-                'qid' =>  "autoincrement",
-                'parent_qid' =>  "integer NOT NULL default '0'",
-                'sid' =>  "integer NOT NULL default '0'",
-                'gid' =>  "integer NOT NULL default '0'",
-                'type' =>  "string(1) NOT NULL default 'T'",
-                'title' =>  "string(20) NOT NULL default ''",
-                'question' =>  "text NOT NULL",
-                'preg' =>  "text",
-                'help' =>  "text",
-                'other' =>  "string(1) NOT NULL default 'N'",
-                'mandatory' =>  "string(1) NULL",
-                'question_order' =>  "integer NOT NULL",
-                'language' =>  "string(20) default 'en' NOT NULL",
-                'scale_id' =>  "integer NOT NULL default '0'",
-                'same_default' =>  "integer NOT NULL default '0'",
-                'relevance' =>  "text",
-                'modulename' =>  "string(255) NULL",
-                'composite_pk' => array('qid', 'language')
-            ));
-            $oDB->createCommand()->createIndex('{{idx1_questions_test}}', '{{questions_test}}', 'sid', false);
-            $oDB->createCommand()->createIndex('{{idx2_questions_test}}', '{{questions_test}}', 'gid', false);
-            $oDB->createCommand()->createIndex('{{idx3_questions_test}}', '{{questions_test}}', 'type', false);
-            $oDB->createCommand()->createIndex('{{idx4_questions_test}}', '{{questions_test}}', 'title', false);
-            $oDB->createCommand()->createIndex('{{idx5_questions_test}}', '{{questions_test}}', 'parent_qid', false);
-            $oDB->createCommand("INSERT INTO {{questions_test}} select
-                qid, parent_qid, sid, gid, type, title, question, preg, help, other, mandatory, question_order, language, scale_id, same_default, relevance, modulename
-                FROM {{questions}}")->execute();
-            /* groups */
-            $oDB->createCommand()->createTable('{{groups_test}}', array(
-                'gid' =>  "autoincrement",
-                'sid' =>  "integer NOT NULL default '0'",
-                'group_name' =>  "string(100) NOT NULL default ''",
-                'group_order' =>  "integer NOT NULL default '0'",
-                'description' =>  "text",
-                'language' =>  "string(20) default 'en' NOT NULL",
-                'randomization_group' =>  "string(20) NOT NULL default ''",
-                'grelevance' =>  "text NULL",
-                'composite_pk' => array('gid', 'language')
-            ));
-            $oDB->createCommand()->createIndex('{{idx1_groups_test}}', '{{groups_test}}', 'sid', false);
-            $oDB->createCommand()->createIndex('{{idx2_groups_test}}', '{{groups_test}}', 'group_name', false);
-            $oDB->createCommand()->createIndex('{{idx3_groups_test}}', '{{groups_test}}', 'language', false);
-            $oDB->createCommand("INSERT INTO {{groups_test}} select
-                gid, sid, group_name,group_order, description, language, randomization_group, grelevance
-                FROM {{groups}}")->execute();
-            /* answers */
-            $oDB->createCommand()->createTable('{{answers_test}}', array(
-                'qid' => 'integer NOT NULL',
-                'code' => 'string(5) NOT NULL',
-                'answer' => 'text NOT NULL',
-                'sortorder' => 'integer NOT NULL',
-                'assessment_value' => 'integer NOT NULL DEFAULT 0',
-                'language' => "string(20) NOT NULL DEFAULT 'en'",
-                'scale_id' => 'integer NOT NULL DEFAULT 0',
-            ));
-
-            $oDB->createCommand()->addPrimaryKey('{{answers_pk_test}}', '{{answers_test}}', ['qid', 'code', 'language', 'scale_id'], false);
-            $oDB->createCommand()->createIndex('{{answers_idx2_test}}', '{{answers_test}}', 'sortorder', false);
-            $oDB->createCommand("INSERT INTO {{answers_test}} select qid,code,answer,sortorder,assessment_value,language,scale_id FROM {{answers}}")->execute();
-
-            /**
-             * The real test start
-             */
             $options = "";
             if(in_array(Yii::app()->db->driverName,['mysql','mysqli'])) {
                 $options = 'ROW_FORMAT=DYNAMIC'; // Same than create-database
@@ -308,6 +209,118 @@ class checkDbForUpgrade extends PluginBase
         if ($defaultname != false) {
             Yii::app()->db->createCommand("ALTER TABLE {$tablename} DROP CONSTRAINT {$defaultname['constraint_name']}")->execute();
         }
+    }
+
+    /**
+     * delete previous table
+     */
+    private static function _deletePreviousTable()
+    {
+        $oDB = Yii::app()->getDb();
+        if(Yii::app()->db->schema->getTable('{{questions_test}}')){
+            $oDB->createCommand()->dropTable('{{questions_test}}');
+        }
+        if(Yii::app()->db->schema->getTable('{{question_l10ns}}')){
+            $oDB->createCommand()->dropTable('{{question_l10ns}}');
+        }
+        if(Yii::app()->db->schema->getTable('{{groups_test}}')){
+            $oDB->createCommand()->dropTable('{{groups_test}}');
+        }
+        if(Yii::app()->db->schema->getTable('{{group_l10ns}}')){
+            $oDB->createCommand()->dropTable('{{group_l10ns}}');
+        }
+        if(Yii::app()->db->schema->getTable('{{answers_test}}')){
+            $oDB->createCommand()->dropTable('{{answers_test}}');
+        }
+        if(Yii::app()->db->schema->getTable('{{answer_l10ns}}')){
+            $oDB->createCommand()->dropTable('{{answer_l10ns}}');
+        }
+        if(Yii::app()->db->schema->getTable('{{label_test}}')){
+            $oDB->createCommand()->dropTable('{{answers_test}}');
+        }
+        if(Yii::app()->db->schema->getTable('{{label_l10ns}}')){
+            $oDB->createCommand()->dropTable('{{answer_l10ns}}');
+        }
+
+        /* Must not happen if don't broke, but can broke when testing code */
+        if(Yii::app()->db->schema->getTable('{{questions_old}}')){
+            $oDB->createCommand()->dropTable('{{questions_old}}');
+        }
+        if(Yii::app()->db->schema->getTable('{{answers_old}}')){
+            $oDB->createCommand()->dropTable('{{answers_old}}');
+        }
+        if(Yii::app()->db->schema->getTable('{{groups_old}}')){
+            $oDB->createCommand()->dropTable('{{groups_old}}');
+        }
+    }
+
+    /**
+     * Create test table : same table than 3.X installer with data from current table
+     */
+    private static function _createTestTable()
+    {
+        $oDB = Yii::app()->getDb();
+        /* question */
+        $oDB->createCommand()->createTable('{{questions_test}}', array(
+            'qid' =>  "autoincrement",
+            'parent_qid' =>  "integer NOT NULL default '0'",
+            'sid' =>  "integer NOT NULL default '0'",
+            'gid' =>  "integer NOT NULL default '0'",
+            'type' =>  "string(1) NOT NULL default 'T'",
+            'title' =>  "string(20) NOT NULL default ''",
+            'question' =>  "text NOT NULL",
+            'preg' =>  "text",
+            'help' =>  "text",
+            'other' =>  "string(1) NOT NULL default 'N'",
+            'mandatory' =>  "string(1) NULL",
+            'question_order' =>  "integer NOT NULL",
+            'language' =>  "string(20) default 'en' NOT NULL",
+            'scale_id' =>  "integer NOT NULL default '0'",
+            'same_default' =>  "integer NOT NULL default '0'",
+            'relevance' =>  "text",
+            'modulename' =>  "string(255) NULL",
+            'composite_pk' => array('qid', 'language')
+        ));
+        $oDB->createCommand()->createIndex('{{idx1_questions_test}}', '{{questions_test}}', 'sid', false);
+        $oDB->createCommand()->createIndex('{{idx2_questions_test}}', '{{questions_test}}', 'gid', false);
+        $oDB->createCommand()->createIndex('{{idx3_questions_test}}', '{{questions_test}}', 'type', false);
+        $oDB->createCommand()->createIndex('{{idx4_questions_test}}', '{{questions_test}}', 'title', false);
+        $oDB->createCommand()->createIndex('{{idx5_questions_test}}', '{{questions_test}}', 'parent_qid', false);
+        $oDB->createCommand("INSERT INTO {{questions_test}} select
+            qid, parent_qid, sid, gid, type, title, question, preg, help, other, mandatory, question_order, language, scale_id, same_default, relevance, modulename
+            FROM {{questions}}")->execute();
+        /* groups */
+        $oDB->createCommand()->createTable('{{groups_test}}', array(
+            'gid' =>  "autoincrement",
+            'sid' =>  "integer NOT NULL default '0'",
+            'group_name' =>  "string(100) NOT NULL default ''",
+            'group_order' =>  "integer NOT NULL default '0'",
+            'description' =>  "text",
+            'language' =>  "string(20) default 'en' NOT NULL",
+            'randomization_group' =>  "string(20) NOT NULL default ''",
+            'grelevance' =>  "text NULL",
+            'composite_pk' => array('gid', 'language')
+        ));
+        $oDB->createCommand()->createIndex('{{idx1_groups_test}}', '{{groups_test}}', 'sid', false);
+        $oDB->createCommand()->createIndex('{{idx2_groups_test}}', '{{groups_test}}', 'group_name', false);
+        $oDB->createCommand()->createIndex('{{idx3_groups_test}}', '{{groups_test}}', 'language', false);
+        $oDB->createCommand("INSERT INTO {{groups_test}} select
+            gid, sid, group_name,group_order, description, language, randomization_group, grelevance
+            FROM {{groups}}")->execute();
+        /* answers */
+        $oDB->createCommand()->createTable('{{answers_test}}', array(
+            'qid' => 'integer NOT NULL',
+            'code' => 'string(5) NOT NULL',
+            'answer' => 'text NOT NULL',
+            'sortorder' => 'integer NOT NULL',
+            'assessment_value' => 'integer NOT NULL DEFAULT 0',
+            'language' => "string(20) NOT NULL DEFAULT 'en'",
+            'scale_id' => 'integer NOT NULL DEFAULT 0',
+        ));
+
+        $oDB->createCommand()->addPrimaryKey('{{answers_pk_test}}', '{{answers_test}}', ['qid', 'code', 'language', 'scale_id'], false);
+        $oDB->createCommand()->createIndex('{{answers_idx2_test}}', '{{answers_test}}', 'sortorder', false);
+        $oDB->createCommand("INSERT INTO {{answers_test}} select qid,code,answer,sortorder,assessment_value,language,scale_id FROM {{answers}}")->execute();
     }
 }
 
