@@ -20,6 +20,7 @@ class checkDbForUpgrade extends PluginBase
         'duUpdate'=>array(
             'type'=>'boolean',
             'label'=>'Do update',
+            'help' => 'Checking : you test code for DB update, no checking : you clean database from _test, _i10n and _old table used bby this plugin',
         ),
     );
 
@@ -32,8 +33,9 @@ class checkDbForUpgrade extends PluginBase
 
     public function saveSettings($settings)
     {
+        self::_deletePreviousTable();
+
         if(!empty($settings['duUpdate'])) {
-            self::_deletePreviousTable();
             self::_createTestTable();
 
             $oDB = Yii::app()->getDb();
