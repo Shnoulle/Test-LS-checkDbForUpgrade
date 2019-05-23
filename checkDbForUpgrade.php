@@ -232,7 +232,7 @@ class checkDbForUpgrade extends PluginBase
                 {{defaultvalues_test}}.dvid, {{defaultvalues_old}}.language, {{defaultvalues_old}}.defaultvalue
                 FROM {{defaultvalues_test}}
                 INNER JOIN {{defaultvalues_old}}
-                    ON {{defaultvalues_test}}.qid = {{defaultvalues_old}}.qid AND {{defaultvalues_test}}.scale_id = {{defaultvalues_old}}.sqid AND {{defaultvalues_test}}.scale_id = {{defaultvalues_old}}.sqid
+                    ON {{defaultvalues_test}}.qid = {{defaultvalues_old}}.qid AND {{defaultvalues_test}}.sqid = {{defaultvalues_old}}.sqid AND {{defaultvalues_test}}.scale_id = {{defaultvalues_old}}.scale_id
                 ")->execute();
             $oDB->createCommand()->dropTable('{{defaultvalues_old}}');
 
