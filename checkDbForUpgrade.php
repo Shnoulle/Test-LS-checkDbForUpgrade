@@ -5,7 +5,7 @@
  * @author Denis Chenu <denis@sondages.pro>
  * @copyright 2019 Denis Chenu <www.sondages.pro>
  * @license Do What The Fuck You Want To Public License (WTFPL)
- * @version 0.1.0
+ * @version 0.2.0
  *
  */
 class checkDbForUpgrade extends PluginBase
@@ -155,10 +155,14 @@ class checkDbForUpgrade extends PluginBase
                     INNER JOIN {{surveys}} ON {{questions_test}}.sid = {{surveys}}.sid AND {{surveys}}.language = {{answers_old}}.language
                 ")->execute();
             /* no pk in insert, get aid by INNER join */
-            $oDB->createCommand("INSERT INTO {{answer_l10ns}} (aid, answer, language) SELECT {{answers_test}}.aid, {{answers_old}}.answer, {{answers_old}}.language
+            $oDB->createCommand("INSERT INTO {{answer_l10ns}}
+                (aid, answer, language)
+                SELECT
+                {{answers_test}}.aid, {{answers_old}}.answer, {{answers_old}}.language
                     FROM {{answers_old}}
                     INNER JOIN {{answers_test}}
-                    ON {{answers_old}}.qid = {{answers_test}}.qid AND {{answers_old}}.code = {{answers_test}}.code AND {{answers_old}}.scale_id = {{answers_test}}.scale_id");
+                    ON {{answers_old}}.qid = {{answers_test}}.qid AND {{answers_old}}.code = {{answers_test}}.code AND {{answers_old}}.scale_id = {{answers_test}}.scale_id
+            ")->execute();
             $oDB->createCommand()->dropTable('{{answers_old}}');
             $oDB->createCommand()->createIndex('{{answers_idx}}', '{{answers_test}}', ['qid', 'code', 'scale_id'], true);
             $oDB->createCommand()->createIndex('{{answers_idx2}}', '{{answers_test}}', 'sortorder', false);
@@ -222,6 +226,14 @@ class checkDbForUpgrade extends PluginBase
                     INNER JOIN {{surveys}} ON {{questions_test}}.sid = {{surveys}}.sid AND {{surveys}}.language = {{defaultvalues_old}}.language
                 ")->execute();
             $oDB->createCommand()->createIndex('{{idx1_defaultvalue_test}}', '{{defaultvalues_test}}', ['qid', 'scale_id', 'sqid', 'specialtype'], false);
+            $oDB->createCommand("INSERT INTO {{defaultvalue_l10ns}}
+                (dvid, language, defaultvalue)
+                SELECT
+                {{defaultvalues_test}}.dvid, {{defaultvalues_old}}.language, {{defaultvalues_old}}.defaultvalue
+                FROM {{defaultvalues_test}}
+                INNER JOIN {{defaultvalues_old}}
+                    ON {{defaultvalues_test}}.qid = {{defaultvalues_old}}.qid AND {{defaultvalues_test}}.scale_id = {{defaultvalues_old}}.sqid AND {{defaultvalues_test}}.scale_id = {{defaultvalues_old}}.sqid
+                ")->execute();
             $oDB->createCommand()->dropTable('{{defaultvalues_old}}');
 
         }
