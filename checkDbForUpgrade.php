@@ -22,6 +22,10 @@ class checkDbForUpgrade extends PluginBase
             'label'=>'Do update',
             'help' => 'Checking : you test code for DB update, no checking : you clean database from _test, _i10n and _old table used bby this plugin',
         ),
+        'previousResult'=> array(
+            'type'=>'info',
+            'content'=>'',
+        ),
     );
 
     /**
@@ -29,6 +33,58 @@ class checkDbForUpgrade extends PluginBase
     */
     public function init()
     {
+    }
+
+    public function getPluginSettings($getValues=true)
+    {
+        $pluginSettings= parent::getPluginSettings($getValues);
+        if($getValues){
+            $pluginSettings['previousResult']['content'] = "<div class='well'><strong class='h4'>Previous result if exist</strong><ul>";
+            $oDB = Yii::app()->getDb();
+            $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{questions}}")->queryRow();
+            $pluginSettings['previousResult']['content'] .= "<li>{{questions}} count : ".$count['count']."</li>";
+            if(Yii::app()->db->schema->getTable('{{questions_test}}')){
+                $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{questions_test}}")->queryRow();
+                $pluginSettings['previousResult']['content'] .= "<li>{{questions_test}} count : ".$count['count']."</li>";
+            }
+            if(Yii::app()->db->schema->getTable('{{question_l10ns}}')){
+                $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{question_l10ns}}")->queryRow();
+                $pluginSettings['previousResult']['content'] .= "<li>{{question_l10ns}} count : ".$count['count']."</li>";
+            }
+            $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{groups}}")->queryRow();
+            $pluginSettings['previousResult']['content'] .= "<li>{{groups}} count : ".$count['count']."</li>";
+            if(Yii::app()->db->schema->getTable('{{groups_test}}')){
+                $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{groups_test}}")->queryRow();
+                $pluginSettings['previousResult']['content'] .= "<li>{{groups_test}} count : ".$count['count']."</li>";
+            }
+            if(Yii::app()->db->schema->getTable('{{group_l10ns}}')){
+                $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{group_l10ns}}")->queryRow();
+                $pluginSettings['previousResult']['content'] .= "<li>{{group_l10ns}} count : ".$count['count']."</li>";
+            }
+            $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{answers}}")->queryRow();
+            $pluginSettings['previousResult']['content'] .= "<li>{{answers}} count : ".$count['count']."</li>";
+            if(Yii::app()->db->schema->getTable('{{answers_test}}')){
+                $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{answers_test}}")->queryRow();
+                $pluginSettings['previousResult']['content'] .= "<li>{{answers_test}} count : ".$count['count']."</li>";
+            }
+            if(Yii::app()->db->schema->getTable('{{answer_l10ns}}')){
+                $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{answer_l10ns}}")->queryRow();
+                $pluginSettings['previousResult']['content'] .= "<li>{{answer_l10ns}} count : ".$count['count']."</li>";
+            }
+            
+            $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{defaultvalues}}")->queryRow();
+            $pluginSettings['previousResult']['content'] .= "<li>{{defaultvalues}} count : ".$count['count']."</li>";
+            if(Yii::app()->db->schema->getTable('{{defaultvalues_test}}')){
+                $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{defaultvalues_test}}")->queryRow();
+                $pluginSettings['previousResult']['content'] .= "<li>{{defaultvalues_test}} count : ".$count['count']."</li>";
+            }
+            if(Yii::app()->db->schema->getTable('{{defaultvalue_l10ns}}')){
+                $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{defaultvalue_l10ns}}")->queryRow();
+                $pluginSettings['previousResult']['content'] .= "<li>{{defaultvalue_l10ns}} count : ".$count['count']."</li>";
+            }
+            $pluginSettings['previousResult']['content'] .= "</ul></div>";
+        }
+        return $pluginSettings;
     }
 
     public function saveSettings($settings)
