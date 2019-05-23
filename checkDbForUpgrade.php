@@ -292,6 +292,13 @@ class checkDbForUpgrade extends PluginBase
                 ")->execute();
             $oDB->createCommand()->dropTable('{{defaultvalues_old}}');
 
+            /* Must flush cache */
+            if (method_exists(Yii::app()->cache, 'flush')) {
+                Yii::app()->cache->flush();
+            }
+            if (method_exists(Yii::app()->cache, 'gc')) {
+                Yii::app()->cache->gc();
+            }
         }
     }
 
@@ -409,6 +416,13 @@ class checkDbForUpgrade extends PluginBase
         }
         if(Yii::app()->db->schema->getTable('{{defaultvalues_old}}')){
             $oDB->createCommand()->dropTable('{{defaultvalues_old}}');
+        }
+        /* Must flush cache */
+        if (method_exists(Yii::app()->cache, 'flush')) {
+            Yii::app()->cache->flush();
+        }
+        if (method_exists(Yii::app()->cache, 'gc')) {
+            Yii::app()->cache->gc();
         }
     }
 
