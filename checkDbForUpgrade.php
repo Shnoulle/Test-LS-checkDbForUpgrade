@@ -39,6 +39,14 @@ class checkDbForUpgrade extends PluginBase
     {
         $pluginSettings= parent::getPluginSettings($getValues);
         if($getValues){
+            /* Throw an error after deleted : need flushing cache */
+            /* Must flush cache */
+            if (method_exists(Yii::app()->cache, 'flush')) {
+                Yii::app()->cache->flush();
+            }
+            if (method_exists(Yii::app()->cache, 'gc')) {
+                Yii::app()->cache->gc();
+            }
             $pluginSettings['previousResult']['content'] = "<div class='well'><strong class='h4'>Previous result if exist</strong><ul>";
             $oDB = Yii::app()->getDb();
             $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{questions}}")->queryRow();
