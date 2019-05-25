@@ -20,7 +20,7 @@ class checkDbForUpgrade extends PluginBase
         'duUpdate'=>array(
             'type'=>'boolean',
             'label'=>'Do update',
-            'help' => 'Checking : you test code for DB update, no checking : you clean database from _test, _i10n and _old table used bby this plugin',
+            'help' => 'Checking : you test code for DB update, no checking : you clean database from _test, _i10n and _old table used bby this plugin'.'<div class="alert alert-warning">You receive an error after delete values : seems cache is not flushed correctly. But it don t broke your DB</div>',
         ),
         'previousResult'=> array(
             'type'=>'info',
