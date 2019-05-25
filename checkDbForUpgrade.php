@@ -44,12 +44,15 @@ class checkDbForUpgrade extends PluginBase
             $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{questions}}")->queryRow();
             $pluginSettings['previousResult']['content'] .= "<li>{{questions}} count : ".$count['count']."</li>";
             if(Yii::app()->db->schema->getTable('{{questions_test}}')){
-                $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{questions_test}}")->queryRow();
-                $pluginSettings['previousResult']['content'] .= "<li>{{questions_test}} count : ".$count['count']."</li>";
+                $count_test = $oDB->createCommand("SELECT COUNT(*) as count FROM {{questions_test}}")->queryRow();
+                $pluginSettings['previousResult']['content'] .= "<li>{{questions_test}} count : ".$count_test['count']."</li>";
             }
             if(Yii::app()->db->schema->getTable('{{question_l10ns}}')){
-                $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{question_l10ns}}")->queryRow();
-                $pluginSettings['previousResult']['content'] .= "<li>{{question_l10ns}} count : ".$count['count']."</li>";
+                $count_l10ns = $oDB->createCommand("SELECT COUNT(*) as count FROM {{question_l10ns}}")->queryRow();
+                $pluginSettings['previousResult']['content'] .= "<li>{{question_l10ns}} count : ".$count_l10ns['count']."</li>";
+            }
+            if(!empty($count_l10ns) && $count_l10ns < $count) {
+                //TODO
             }
             $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{groups}}")->queryRow();
             $pluginSettings['previousResult']['content'] .= "<li>{{groups}} count : ".$count['count']."</li>";
@@ -64,23 +67,51 @@ class checkDbForUpgrade extends PluginBase
             $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{answers}}")->queryRow();
             $pluginSettings['previousResult']['content'] .= "<li>{{answers}} count : ".$count['count']."</li>";
             if(Yii::app()->db->schema->getTable('{{answers_test}}')){
-                $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{answers_test}}")->queryRow();
-                $pluginSettings['previousResult']['content'] .= "<li>{{answers_test}} count : ".$count['count']."</li>";
+                $count_test = $oDB->createCommand("SELECT COUNT(*) as count FROM {{answers_test}}")->queryRow();
+                $pluginSettings['previousResult']['content'] .= "<li>{{answers_test}} count : ".$count_test['count']."</li>";
             }
             if(Yii::app()->db->schema->getTable('{{answer_l10ns}}')){
-                $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{answer_l10ns}}")->queryRow();
-                $pluginSettings['previousResult']['content'] .= "<li>{{answer_l10ns}} count : ".$count['count']."</li>";
+                $count_l10ns = $oDB->createCommand("SELECT COUNT(*) as count FROM {{answer_l10ns}}")->queryRow();
+                $pluginSettings['previousResult']['content'] .= "<li>{{answer_l10ns}} count : ".$count_l10ns['count']."</li>";
             }
-            
+            if(!empty($count_l10ns) && $count_l10ns < $count) {
+                // Find deleted value
+                $deletedValues = $oDB->createCommand("SELECT
+                {{questions}}.sid sid,{{answers}}.qid qid,{{answers}}.code code,{{answers}}.language language,{{answers}}.scale_id scale_id
+                FROM {{answer_l10ns}}
+                    INNER JOIN {{answers_test}} ON {{answers_test}}.aid = {{answer_l10ns}}.aid
+                    LEFT JOIN {{questions}} ON {{questions}}.qid = {{answers_test}}.qid
+                    RIGHT JOIN {{answers}} ON {{answers_test}}.qid = {{answers}}.qid AND {{answers_test}}.code = {{answers}}.code AND {{answers_test}}.scale_id = {{answers}}.scale_id
+                    WHERE {{answers_test}}.aid IS NULL")->queryAll();
+                foreach($deletedValues as $deletedValue) {
+                    $pluginSettings['previousResult']['content'] .= "<li>{{answer_l10ns}} lost sid: {$deletedValue['sid']} , qid: {$deletedValue['qid']}, code: {$deletedValue['code']}, scale_id: {$deletedValue['scale_id']} with language {$deletedValue['language']}</li>";
+                }
+            }
             $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{defaultvalues}}")->queryRow();
             $pluginSettings['previousResult']['content'] .= "<li>{{defaultvalues}} count : ".$count['count']."</li>";
             if(Yii::app()->db->schema->getTable('{{defaultvalues_test}}')){
-                $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{defaultvalues_test}}")->queryRow();
-                $pluginSettings['previousResult']['content'] .= "<li>{{defaultvalues_test}} count : ".$count['count']."</li>";
+                $count_test = $oDB->createCommand("SELECT COUNT(*) as count FROM {{defaultvalues_test}}")->queryRow();
+                $pluginSettings['previousResult']['content'] .= "<li>{{defaultvalues_test}} count : ".$count_test['count']."</li>";
             }
             if(Yii::app()->db->schema->getTable('{{defaultvalue_l10ns}}')){
-                $count = $oDB->createCommand("SELECT COUNT(*) as count FROM {{defaultvalue_l10ns}}")->queryRow();
-                $pluginSettings['previousResult']['content'] .= "<li>{{defaultvalue_l10ns}} count : ".$count['count']."</li>";
+                $count_l10ns = $oDB->createCommand("SELECT COUNT(*) as count FROM {{defaultvalue_l10ns}}")->queryRow();
+                $pluginSettings['previousResult']['content'] .= "<li>{{defaultvalue_l10ns}} count : ".$count_l10ns['count']."</li>";
+            }
+            if(!empty($count_l10ns) && $count_l10ns < $count) {
+                // Find deleted value
+                $deletedValues = $oDB->createCommand("SELECT
+                {{questions}}.sid sid,{{defaultvalues}}.qid qid,{{defaultvalues}}.sqid sqid,{{defaultvalues}}.scale_id scale_id,{{defaultvalues}}.language language
+                FROM {{defaultvalue_l10ns}}
+                    INNER JOIN {{defaultvalues_test}}
+                        ON {{defaultvalue_l10ns}}.dvid = {{defaultvalues_test}}.dvid
+                    LEFT JOIN {{questions}}
+                        ON {{questions}}.qid = {{defaultvalues_test}}.qid
+                    RIGHT JOIN {{defaultvalues}}
+                        ON {{defaultvalues_test}}.qid = {{defaultvalues}}.qid AND {{defaultvalues_test}}.sqid = {{defaultvalues}}.sqid AND {{defaultvalues_test}}.scale_id = {{defaultvalues}}.scale_id
+                WHERE {{defaultvalues_test}}.dvid IS NULL")->queryAll();
+                foreach($deletedValues as $deletedValue) {
+                    $pluginSettings['previousResult']['content'] .= "<li>{{defaultvalue_l10ns}} lost sid: {$deletedValue['sid']} , qid: {$deletedValue['qid']}, sqid: {$deletedValue['sqid']}, scale_id: {$deletedValue['scale_id']} with language {$deletedValue['language']}</li>";
+                }
             }
             $pluginSettings['previousResult']['content'] .= "</ul></div>";
         }
