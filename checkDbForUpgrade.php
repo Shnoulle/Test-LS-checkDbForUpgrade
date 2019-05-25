@@ -226,6 +226,20 @@ class checkDbForUpgrade extends PluginBase
             /**
              * Labels
              **/
+            $oDB->createCommand()->renameTable('{{labels_test}}', '{{labels_old}}');
+            $oDB->createCommand()->createTable('{{labels_test}}',[
+                'id' =>  "pk",
+                'lid' => 'integer NOT NULL',
+                'code' => 'string(5) NOT NULL',
+                'sortorder' => 'integer NOT NULL',
+                'assessment_value' => 'integer NOT NULL DEFAULT 0'
+            ], $options);
+            $oDB->createCommand("INSERT INTO {{labels_test}}
+                (lid, code, sortorder, assessment_value)
+                SELECT lid, code, min(sortorder), min(assessment_value)
+                FROM {{labels_old}}
+                GROUP BY lid, code")->execute();
+            
             $oDB->createCommand()->createTable('{{label_l10ns}}', array(
                 'id' =>  "pk",
                 'label_id' =>  "integer NOT NULL",
@@ -235,24 +249,11 @@ class checkDbForUpgrade extends PluginBase
             $oDB->createCommand()->createIndex('{{idx1_label_l10ns}}', '{{label_l10ns}}', ['label_id', 'language'], true);
             $oDB->createCommand("INSERT INTO {{label_l10ns}}
                 (label_id, title, language)
-                SELECT {{labels_test}}.id, title, language
-                FROM {{labels_test}}
+                SELECT {{labels_test}}.id ,{{labels_old}}.title,{{labels_old}}.language
+                FROM {{labels_old}}
+                    INNER JOIN {{labels_test}} on {{labels_old}}.lid = {{labels_test}}.lid AND {{labels_old}}.code = {{labels_test}}.code 
                 ")->execute();
-            $oDB->createCommand()->renameTable('{{labels_test}}', '{{labels_old}}');
-            $oDB->createCommand()->createTable('{{labels_test}}',[
-                'id' =>  "pk",
-                'lid' => 'integer NOT NULL',
-                'code' => 'string(5) NOT NULL',
-                'sortorder' => 'integer NOT NULL',
-                'assessment_value' => 'integer NOT NULL DEFAULT 0'
-            ], $options);
-            switchMSSQLIdentityInsert('labels_test', true);
-            $oDB->createCommand("INSERT INTO {{labels_test}}
-                (id, lid, code, sortorder, assessment_value)
-                SELECT id, lid, code, sortorder, assessment_value
-                FROM {{labels_old}} GROUP BY id, lid, code, sortorder, assessment_value
-                ")->execute();
-            switchMSSQLIdentityInsert('labels_test', false);
+
             $oDB->createCommand()->dropTable('{{labels_old}}');
             
             /**
