@@ -316,18 +316,18 @@ class checkDbForUpgrade extends PluginBase
             ], $options);
             $oDB->createCommand("INSERT INTO {{defaultvalues_test}}
                 (qid, sqid, scale_id, specialtype)
-                SELECT qid, sqid, scale_id, min(COALESCE(specialtype,''))
+                SELECT qid, sqid, scale_id, COALESCE(specialtype,'')
                 FROM {{defaultvalues_old}}
-                    GROUP BY qid, sqid, scale_id
+                    GROUP BY qid, sqid, scale_id, COALESCE(specialtype,'')
                 ")->execute();
-            $oDB->createCommand()->createIndex('{{idx1_defaultvalue_test}}', '{{defaultvalues_test}}', ['qid', 'scale_id', 'sqid', 'specialtype'], false);
+            $oDB->createCommand()->createIndex('{{idx1_defaultvalue_test}}', '{{defaultvalues_test}}', ['qid', 'scale_id', 'sqid', 'specialtype'], true);
             $oDB->createCommand("INSERT INTO {{defaultvalue_l10ns}}
                 (dvid, language, defaultvalue)
                 SELECT
                 {{defaultvalues_test}}.dvid, {{defaultvalues_old}}.language, {{defaultvalues_old}}.defaultvalue
                 FROM {{defaultvalues_test}}
                 INNER JOIN {{defaultvalues_old}}
-                    ON {{defaultvalues_test}}.qid = {{defaultvalues_old}}.qid AND {{defaultvalues_test}}.sqid = {{defaultvalues_old}}.sqid AND {{defaultvalues_test}}.scale_id = {{defaultvalues_old}}.scale_id
+                    ON {{defaultvalues_test}}.qid = {{defaultvalues_old}}.qid AND {{defaultvalues_test}}.sqid = {{defaultvalues_old}}.sqid AND {{defaultvalues_test}}.scale_id = {{defaultvalues_old}}.scale_id AND {{defaultvalues_test}}.specialtype = {{defaultvalues_old}}.specialtype
                 ")->execute();
             $oDB->createCommand()->dropTable('{{defaultvalues_old}}');
 
