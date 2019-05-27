@@ -315,11 +315,10 @@ class checkDbForUpgrade extends PluginBase
                 'specialtype' =>  "string(20) NOT NULL default ''",
             ], $options);
             $oDB->createCommand("INSERT INTO {{defaultvalues_test}}
-                (qid, scale_id, sqid, specialtype)
-                SELECT {{defaultvalues_old}}.qid, {{defaultvalues_old}}.scale_id, {{defaultvalues_old}}.sqid, {{defaultvalues_old}}.specialtype
+                (qid, sqid, scale_id, specialtype)
+                SELECT qid, sqid, scale_id, min(COALESCE(specialtype,''))
                 FROM {{defaultvalues_old}}
-                    INNER JOIN {{questions_test}} ON {{defaultvalues_old}}.qid = {{questions_test}}.qid
-                    INNER JOIN {{surveys}} ON {{questions_test}}.sid = {{surveys}}.sid AND {{surveys}}.language = {{defaultvalues_old}}.language
+                    GROUP BY qid, sqid, scale_id
                 ")->execute();
             $oDB->createCommand()->createIndex('{{idx1_defaultvalue_test}}', '{{defaultvalues_test}}', ['qid', 'scale_id', 'sqid', 'specialtype'], false);
             $oDB->createCommand("INSERT INTO {{defaultvalue_l10ns}}
